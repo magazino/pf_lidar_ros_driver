@@ -65,7 +65,7 @@ void PFDataPublisher::to_msg_queue(T& packet, uint16_t layer_idx, int layer_incl
   {
     msg.reset(new sensor_msgs::LaserScan());
     msg->header.frame_id.assign(frame_id_);
-    //msg->header.seq = packet.header.header.scan_number;
+    // msg->header.seq = packet.header.header.scan_number;
     msg->scan_time = 1000.0 / packet.header.scan_frequency;
     msg->angle_increment = packet.header.angular_increment / 10000.0 * (M_PI / 180.0);
 
