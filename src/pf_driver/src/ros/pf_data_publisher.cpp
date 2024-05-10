@@ -68,11 +68,16 @@ void PFDataPublisher::to_msg_queue(T& packet, uint16_t layer_idx, int layer_incl
     msg->header.frame_id.assign(frame_id_);
     msg->header.seq = packet.header.header.scan_number;
     msg->scan_time = static_cast<float>(scan_time.toSec());
-    msg->header.stamp = packet.last_acquired_point_stamp - scan_time;
     msg->angle_increment = packet.header.angular_increment / 10000.0 * (M_PI / 180.0);
 
     {
       msg->time_increment = (params_->angular_fov * msg->scan_time) / (M_PI * 2.0) / packet.header.num_points_scan;
+
+      // Set the timestamp of the full scan to the first scan point's time,
+      // as required by the ROS LaserScan message definition.
+      const auto packet_time = ros::Duration(msg->time_increment * packet.header.num_points_packet);
+      msg->header.stamp = packet.last_acquired_point_stamp - packet_time;
+
       msg->angle_min = params_->angle_min;
       msg->angle_max = params_->angle_max;
       if (std::is_same<T, PFR2300Packet_C1>::value)  // Only Packet C1 for R2300
