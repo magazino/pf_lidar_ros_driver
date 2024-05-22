@@ -30,8 +30,6 @@ void ScanPublisher::read(PFR2300Packet_C1& packet)
 
 void ScanPublisher::publish_scan(sensor_msgs::LaserScanPtr msg, uint16_t layer_idx)
 {
-  ros::Time t = ros::Time::now();
-  msg->header.stamp = t;
   scan_publisher_.publish(std::move(msg));
 }
 
@@ -60,6 +58,12 @@ void ScanPublisher::to_msg_queue(T& packet, uint16_t layer_idx)
     {
       std::lock_guard<std::mutex> lock(config_mutex_);
       msg->time_increment = (params_.angular_fov * msg->scan_time) / (M_PI * 2.0) / packet.header.num_points_scan;
+
+      // Set the timestamp of the full scan to the first scan point's time,
+      // as required by the ROS LaserScan message definition.
+      const auto packet_time = ros::Duration(msg->time_increment * packet.header.num_points_packet);
+      msg->header.stamp = packet.last_acquired_point_stamp - packet_time;
+
       msg->angle_min = params_.angle_min;
       msg->angle_max = params_.angle_max;
       if (std::is_same<T, PFR2300Packet_C1>::value)  // Only Packet C1 for R2300
@@ -155,8 +159,6 @@ void ScanPublisherR2300::handle_scan(sensor_msgs::LaserScanPtr msg, uint16_t lay
 
 void ScanPublisherR2300::publish_scan(sensor_msgs::LaserScanPtr msg, uint16_t idx)
 {
-  ros::Time t = ros::Time::now();
-  msg->header.stamp = t;
   msg->header.frame_id = frame_ids_.at(idx);
   scan_publishers_.at(idx).publish(msg);
 }

@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <ros/serialization.h>
+#include <ros/time.h>
 #include "pf_driver/PFR2000Header.h"
 #include "pf_driver/PFR2300Header.h"
 
@@ -11,6 +12,7 @@ class PFPacket
 {
 public:
   pf_driver::PFHeader header;
+  ros::Time last_acquired_point_stamp;
   std::vector<uint32_t> distance;
   std::vector<uint16_t> amplitude;
 
