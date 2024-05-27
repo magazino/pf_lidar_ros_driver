@@ -152,6 +152,7 @@ void PFInterface::stop_transmission()
   pipeline_->terminate();
   pipeline_.reset();
   protocol_interface_->stop_scanoutput(info_.handle);
+  protocol_interface_->release_handle(info_.handle);
   change_state(PFState::SHUTDOWN);
 }
 

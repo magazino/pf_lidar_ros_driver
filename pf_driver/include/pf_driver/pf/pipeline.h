@@ -31,6 +31,7 @@ public:
   }
 };
 
+// TODO(SHA): Remove this utterly useless virtual base class.
 // TCP / UDP
 template <typename T>
 class Writer
