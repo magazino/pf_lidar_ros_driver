@@ -11,6 +11,9 @@ int main(int argc, char* argv[])
   ros::init(argc, argv, "pf_driver");
   ros::NodeHandle nh("~");
 
+  // TODO (SHA): other versions of the PF driver use R2000/transport, etc.
+  // Please use that convention as well,
+  // so that we can simply remove a comparison from our launch files.
   std::string transport_str, IP, port, device;
   bool init_valid = true;
   init_valid &= nh.getParam("transport", transport_str);
@@ -31,6 +34,10 @@ int main(int argc, char* argv[])
   nh.getParam("max_num_points_scan", max_num_points_scan);
   config.max_num_points_scan = max_num_points_scan;
 
+  // TODO (SHA): This is not how to do it.
+  // This option should be passed into the pf interface as a parameter / config.
+  // and transport should be constructed within it.
+  // Constructing it here and then moving just because the parameter is in this scope is hacky.
   std::unique_ptr<Transport> transport;
   if (transport_str == "udp")
     transport = std::make_unique<UDPTransport>(IP);

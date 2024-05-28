@@ -252,6 +252,13 @@ private:
     if (code.compare("0") || text.compare("success"))
     {
       std::cout << "protocol error: " << code << " " << text << std::endl;
+
+      if (!code.compare("120"))
+      {
+        ROS_ERROR("Cannot recover from protocol error: 120. Purposefully terminating the driver. Connection will be "
+                  "re-established when it respawns.");
+        std::terminate();
+      }
       return false;
     }
     return true;
