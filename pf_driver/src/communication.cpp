@@ -63,7 +63,6 @@ bool UDPTransport::disconnect()
 {
   std::cout << "disconnecting..." << std::endl;
   socket_->close();
-  // TODO (SHA): This should have is_connected_ = false
   return true;
 }
 

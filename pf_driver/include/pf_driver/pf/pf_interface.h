@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <string>
 #include <memory>
 #include <future>
@@ -36,12 +37,15 @@ public:
   void stop_transmission();
   void terminate();
 
+  std::atomic<bool> is_scanner_accessible_{ false };
+
 private:
   using PipelinePtr = std::unique_ptr<Pipeline<PFPacket>>;
 
   ros::NodeHandle nh_;
   std::string ip_, port_;
-  ros::Timer watchdog_timer_;
+  ros::Timer feed_watchdog_timer_;               /** Periodically runs the 'feed_watchdog'. */
+  ros::Timer scanner_accessible_watchdog_timer_; /** Periodically checks whether the scanner is accessible. */
   std::unique_ptr<Transport> transport_;
   transport_type transport_type_;
   std::shared_ptr<PFSDPBase> protocol_interface_;
@@ -79,6 +83,8 @@ private:
 
   std::mutex mutex_;
   void on_shutdown();
+  bool is_scanner_accessible() const;
+  void scanner_accessible_watchdog();
 };
 
 #endif

@@ -59,7 +59,9 @@ int main(int argc, char* argv[])
     ROS_ERROR("Unable to start scan");
     return -1;
   }
+
   ros::spin();
+
   pf_interface.stop_transmission();
   return 0;
 }

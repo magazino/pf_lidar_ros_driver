@@ -9,13 +9,47 @@
 bool PFInterface::init()
 {
   // This is the first time ROS communicates with the device
+
+  // The scanner might be off during the start up of this node up to 30 seconds.
+  // This happens on EAE if the user:
+  // - stops the bringup
+  // - turns off the key to powercycle the base truck
+  // - starts the bringup
+  // - turns the key back on some time in the future (can be max 30 seconds, or EAE will power off fully.)
+  //
+  // It also takes many seconds for the scanner to be accessible after it is powered on.
+  const uint max_seconds_to_wait_for_commmunication = 30 + 10;
+  ros::Time timestamp_at_which_we_will_give_up =
+      ros::Time::now() + ros::Duration(max_seconds_to_wait_for_commmunication);
+
   auto opi = protocol_interface_->get_protocol_info();
+  while (opi.isError && ros::Time::now() < timestamp_at_which_we_will_give_up)
+  {
+    ROS_WARN_THROTTLE(2, "Unable to communicate with device. Either the IP address is wrong or the scanner is off. "
+                         "Waiting for it to come up.");
+    ros::Duration(2.0).sleep();
+    opi = protocol_interface_->get_protocol_info();
+  }
   if (opi.isError)
   {
-    ROS_ERROR("Unable to communicate with device. Please check the IP address");
+    ROS_ERROR("Unable to communicate with device. We gave up after re-trying for %d seconds.",
+              max_seconds_to_wait_for_commmunication);
     return false;
   }
-  // ROS_INFO("Info: %i %i %s", opi.version_major, opi.version_minor, opi.protocol_name.c_str());
+
+  //  We  will always expect the scanner to be accessible from now on.
+  is_scanner_accessible_ = is_scanner_accessible();
+  if (is_scanner_accessible_)
+  {
+    float scanner_accessible_watchog_period = 2;  // seconds
+    scanner_accessible_watchdog_timer_ = nh_.createTimer(ros::Duration(scanner_accessible_watchog_period),
+                                                         std::bind(&PFInterface::scanner_accessible_watchdog, this));
+  }
+  else
+  {
+    ROS_ERROR("Scanner is not accessible. We received HTTP info from it but it is now not pingable somehow.");
+    return false;
+  }
 
   if (opi.protocol_name != "pfsdp")
     return false;
@@ -98,6 +132,12 @@ bool PFInterface::start_transmission(ScanConfig& config)
   if (pipeline_ && pipeline_->is_running())
     return true;
 
+  if (!is_scanner_accessible_)
+  {
+    ROS_ERROR("Cannot start the transmission because the scanner is not available.");
+    return false;
+  }
+
   std::string pkt_type = (expected_device_ == "R2000") ? "C" : "";
   if (transport_type_ == transport_type::tcp)
   {
@@ -135,7 +175,6 @@ bool PFInterface::start_transmission(ScanConfig& config)
 
   if (!pipeline_->start())
     return false;
-
   protocol_interface_->start_scanoutput(info_.handle);
   if (config_.watchdog)
     start_watchdog_timer(config_.watchdogtimeout / 1000.0);
@@ -149,10 +188,16 @@ void PFInterface::stop_transmission()
 {
   if (state_ != PFState::RUNNING)
     return;
-  pipeline_->terminate();
-  pipeline_.reset();
-  protocol_interface_->stop_scanoutput(info_.handle);
-  protocol_interface_->release_handle(info_.handle);
+
+  // Unfortunately this node as it is now cannot join the reader & writer threads properly if the scanner is not
+  // accessible. we will just let the process die and let the OS do the cleaning up.
+  if (is_scanner_accessible_)
+  {
+    pipeline_->terminate();
+    pipeline_.reset();
+    protocol_interface_->stop_scanoutput(info_.handle);
+    protocol_interface_->release_handle(info_.handle);
+  }
   change_state(PFState::SHUTDOWN);
 }
 
@@ -203,7 +248,7 @@ void PFInterface::start_watchdog_timer(float duration)
 {
   // dividing the watchdogtimeout by 2 to have a “safe” feed time within the defined timeout
   float feed_time = std::min(duration, 60.0f) / 2.0f;
-  watchdog_timer_ =
+  feed_watchdog_timer_ =
       nh_.createTimer(ros::Duration(feed_time), std::bind(&PFInterface::feed_watchdog, this, std::placeholders::_1));
 }
 
@@ -327,4 +372,32 @@ void PFInterface::reconfig_callback_r2300(pf_driver::PFDriverR2300Config& config
   pipeline_->set_scanoutput_config(config_);
   params_ = protocol_interface_->get_scan_parameters(config_.start_angle);
   pipeline_->set_scan_params(params_);
+}
+
+bool PFInterface::is_scanner_accessible() const
+{
+  // This is extremely ugly and hacky, but is the most bulletproof way
+  // to check if we have access to the scanner.
+  // This is a ping command with 1 packet and 1 second timeout,
+  // stdout and stderr are piped to null.
+  std::string command = "ping -c 1 -W 1 " + ip_ + " > /dev/null 2>&1";
+  int result = std::system(command.c_str());
+  bool is_accessible =  result == 0;
+
+  if (!is_accessible)
+  {
+    ROS_ERROR("Scanner just became inaccessible, calling ros::shutdown to stop this node");
+    ros::shutdown();
+  }
+
+  return is_accessible;
+}
+
+void PFInterface::scanner_accessible_watchdog()
+{
+  is_scanner_accessible_ = is_scanner_accessible();
+  if (!is_scanner_accessible_)
+  {
+    ROS_ERROR("Scanner is not accessible.");
+  }
 }
