@@ -31,7 +31,6 @@ public:
   }
 };
 
-// TODO(SHA): Remove this utterly useless virtual base class.
 // TCP / UDP
 template <typename T>
 class Writer
@@ -74,7 +73,6 @@ public:
   void terminate()
   {
     shutdown_ = true;
-    // ROS_INFO("Stopping read-write pipeline!");
     running_ = false;
 
     writer_->stop();
@@ -129,6 +127,7 @@ private:
       {
         break;
       }
+
       for (auto& p : packets)
       {
         if (!queue_.try_enqueue(std::move(p)))
@@ -137,9 +136,6 @@ private:
       packets.clear();
       std::this_thread::sleep_for(std::chrono::milliseconds(2));
     }
-    writer_->stop();
-    running_ = false;
-    reader_->stop();
     on_shutdown();
   }
 
@@ -160,9 +156,6 @@ private:
         reader_->read(std::move(packet));  // here the scans will be published
       }
     }
-    reader_->stop();
-    running_ = false;
-    writer_->stop();
     on_shutdown();
   }
 };
