@@ -39,7 +39,7 @@ public:
   virtual bool disconnect() = 0;
   virtual bool read(boost::array<uint8_t, 4096>& buf, size_t& len) = 0;
 
-  Transport(std::string address, transport_type typ) : address_(address), type_(typ), is_connected_(false)
+  Transport(std::string address, std::string port, transport_type typ) : address_(address), port_(port), type_(typ), is_connected_(false)
   {
   }
 
@@ -85,7 +85,7 @@ protected:
 class TCPTransport : public Transport
 {
 public:
-  TCPTransport(std::string address) : Transport(address, transport_type::tcp)
+  TCPTransport(std::string address, std::string port) : Transport(address, port, transport_type::tcp)
   {
     io_service_ = std::make_shared<boost::asio::io_service>();
     socket_ = std::make_unique<tcp::socket>(*io_service_);
@@ -107,10 +107,10 @@ private:
 class UDPTransport : public Transport
 {
 public:
-  UDPTransport(std::string address) : Transport(address, transport_type::udp)
+  UDPTransport(std::string address, std::string port) : Transport(address, port, transport_type::udp)
   {
     io_service_ = std::make_shared<boost::asio::io_service>();
-    socket_ = std::make_unique<udp::socket>(*io_service_, udp::endpoint(udp::v4(), 0));
+    socket_ = std::make_unique<udp::socket>(*io_service_, udp::endpoint(udp::v4(), atoi(port_.c_str())));
   }
 
   ~UDPTransport()

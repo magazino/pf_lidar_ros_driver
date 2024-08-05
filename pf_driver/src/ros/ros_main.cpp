@@ -40,9 +40,9 @@ int main(int argc, char* argv[])
   // Constructing it here and then moving just because the parameter is in this scope is hacky.
   std::unique_ptr<Transport> transport;
   if (transport_str == "udp")
-    transport = std::make_unique<UDPTransport>(IP);
+    transport = std::make_unique<UDPTransport>(IP, port);
   else if (transport_str == "tcp")
-    transport = std::make_unique<TCPTransport>(IP);
+    transport = std::make_unique<TCPTransport>(IP, port);
   else
   {
     ROS_ERROR("Incorrect transport option.");
